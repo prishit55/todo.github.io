@@ -1,50 +1,70 @@
-const express = require('express');
-const app = express();
-const cors = require("cors");
+let serverEndpoint = "http://localhost:4000/";
+// ui variables
+const form = document.querySelector(".form");
 
-app.use(cors());
-//parser
-app.use(
-    express.urlencoded({
-        limit: "500mb",
-        extended: true,
+const input = form.querySelector(".form__input");
+const ul = document.querySelector(".toDoList");
+//fetch and save array to todolist
+let toDoListArray = [];
+
+fetch(`${serverEndpoint}`)
+  .then((res) => {
+    return res.json();
+  })
+  .then((arr) => {
+    toDoListArray = arr;
+    updateDom();
+  });
+
+//update dom
+const updateDom = () => {
+  ul.innerHTML = "";
+  for (let i = 0; i < toDoListArray.length; i++) {
+    const li = document.createElement("li");
+    li.setAttribute("data-id", toDoListArray[i]._id);
+    // add toDoItem text to li
+    li.innerText = toDoListArray[i].text;
+    // add li to the DOM
+    ul.appendChild(li);
+  }
+};
+updateDom();
+
+// event listeners
+form.addEventListener("submit", (e) => {
+  // prevent default behaviour - Page reload
+  e.preventDefault();
+  let toDoItem = input.value;
+  //add item to the database
+  fetch(`${serverEndpoint}add/`, {
+    method: "POST",
+    body: new URLSearchParams({
+      text: toDoItem,
+    }),
+  })
+    .then((res) => {
+      return res.json();
     })
-);
-
-const mongoose = require("mongoose");
-mongoose.connect(
-    "mongodb+srv://project-webapp:aR8waKX4fhZL5fN@webapp.niebb.mongodb.net/todo",
-    { useNewUrlParser: true}
-);
-
-mongoose.connection.on("connected", () => {
-    console.log("Connected to database");
-});
-const todoSchema = new mongoose.Schema({
-    text:String
-})
-const todoModel = mongoose.model("todo", todoSchema);
-
-app.get('/',async(req,res)=>{
-    //get todos from database
-    const todos = await todoModel.find();
-    res.json(todos);
-});
-app.post('/add',async(req,res)=>{
-    const todo = new todoModel({
-        text:req.body.text
+    .then((arr) => {
+      toDoListArray = arr;
+      updateDom();
     });
-    await todo.save();
+  //update todolist
+  input.value = "";
+});
 
-    const todos = await todoModel.find();
-    res.json(todos);
-});
-app.delete("/delete/:id",async(req,res)=>{
-    const id = req.params.id;
-    await todoModel.deleteOne({id});
-    const todos = await todoModel.find();
-    res.json(todos);
-});
-app.listen(4000,() => {
-    console.log("server started on post 4000");
+ul.addEventListener("click", (e) => {
+  let id = e.target.getAttribute("data-id");
+  if (!id) return; // user clicked in something else
+
+  fetch(`${serverEndpoint}delete/${id}`, {
+    method: "DELETE",
+  })
+    .then((res) => {
+      return res.json();
+    })
+    .then((arr) => {
+      toDoListArray = arr;
+      updateDom();
+    });
 });
